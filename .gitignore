@@ -1,3 +1,11 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+dist/
+build/
+
 # Claude Code — personal overrides (never commit these)
 CLAUDE.local.md
 .claude/settings.local.json
