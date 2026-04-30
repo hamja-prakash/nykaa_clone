@@ -1,0 +1,30 @@
+const router = require('express').Router();
+const { PrismaClient } = require('@prisma/client');
+const { authenticate } = require('../middleware/auth');
+
+const prisma = new PrismaClient();
+
+// POST /api/coupons/validate
+router.post('/validate', authenticate, async (req, res) => {
+  try {
+    const { code, orderAmount } = req.body;
+    const coupon = await prisma.coupon.findFirst({
+      where: { code: code.toUpperCase(), isActive: true },
+    });
+
+    if (!coupon) return res.status(404).json({ error: 'Invalid coupon code' });
+    if (coupon.expiresAt && coupon.expiresAt < new Date()) return res.status(400).json({ error: 'Coupon has expired' });
+    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) return res.status(400).json({ error: 'Coupon usage limit reached' });
+    if (orderAmount < coupon.minOrder) return res.status(400).json({ error: `Minimum order ₹${coupon.minOrder} required` });
+
+    const discount = coupon.type === 'PERCENT'
+      ? Math.min((orderAmount * coupon.value) / 100, coupon.maxDiscount || Infinity)
+      : coupon.value;
+
+    res.json({ valid: true, discount: Math.round(discount), coupon });
+  } catch {
+    res.status(500).json({ error: 'Failed to validate coupon' });
+  }
+});
+
+module.exports = router;
