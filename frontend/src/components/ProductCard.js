@@ -18,7 +18,7 @@ export default function ProductCard({ product }) {
     return Array.isArray(product.images) ? product.images : [];
   })();
 
-  const img = images[0] || `https://via.placeholder.com/300x300?text=${encodeURIComponent(product.name)}`;
+  const img = images[0] || '';
 
   const handleWishlist = async (e) => {
     e.preventDefault();
@@ -48,12 +48,19 @@ export default function ProductCard({ product }) {
       <div className="card group cursor-pointer overflow-hidden">
         {/* Image */}
         <div className="relative aspect-[3/4] overflow-hidden bg-nykaa-light-gray">
-          <img
-            src={imgError ? `https://via.placeholder.com/300x400?text=${encodeURIComponent(product.name)}` : img}
-            alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            onError={() => setImgError(true)}
-          />
+          {!imgError && img ? (
+            <img
+              src={img}
+              alt={product.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-nykaa-pink-pale gap-2 group-hover:scale-105 transition-transform duration-300">
+              <span className="text-4xl">🧴</span>
+              <span className="text-xs text-nykaa-gray text-center px-2 line-clamp-2">{product.name}</span>
+            </div>
+          )}
 
           {/* Badges */}
           <div className="absolute top-2 left-2 flex flex-col gap-1">

@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { FiSearch, FiShoppingBag, FiHeart, FiUser, FiMenu, FiX, FiChevronDown } from 'react-icons/fi';
@@ -17,6 +17,7 @@ const NAV_CATEGORIES = [
 
 export default function Header() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, signOut } = useAuth();
   const { cartCount } = useCart();
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,11 +42,14 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    setSearchQuery(searchParams.get('search') || '');
+  }, [searchParams]);
+
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       router.push(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchQuery('');
     }
   };
 

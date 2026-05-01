@@ -35,7 +35,7 @@ router.get('/:id', authenticate, async (req, res) => {
 // POST /api/orders
 router.post('/', authenticate, async (req, res) => {
   try {
-    const { addressId, paymentMethod = 'COD', notes, couponCode } = req.body;
+    const { addressId, paymentMethod = 'COD', notes, couponCode, razorpayPaymentId } = req.body;
 
     const cartItems = await prisma.cartItem.findMany({
       where: { userId: req.user.id },
@@ -66,7 +66,8 @@ router.post('/', authenticate, async (req, res) => {
         userId: req.user.id,
         addressId: addressId || null,
         paymentMethod,
-        notes,
+        paymentStatus: paymentMethod === 'COD' ? 'PENDING' : (razorpayPaymentId ? 'PAID' : 'PENDING'),
+        notes: notes || (razorpayPaymentId ? `Razorpay Payment ID: ${razorpayPaymentId}` : undefined),
         subtotal,
         deliveryCharge,
         discount,

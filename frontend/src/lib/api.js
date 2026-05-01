@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5002/api';
 
 const api = axios.create({ baseURL: API_URL });
 
@@ -68,5 +68,9 @@ export const deleteAddress = (id) => api.delete(`/users/addresses/${id}`);
 // Coupons
 export const validateCoupon = (code, orderAmount) =>
   api.post('/coupons/validate', { code, orderAmount });
+
+// Payments
+export const createRazorpayOrder = (amount) => api.post('/payments/create-order', { amount });
+export const verifyPayment = (data) => api.post('/payments/verify', data);
 
 export default api;

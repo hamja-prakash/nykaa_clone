@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
-import { getAddresses, addAddress, placeOrder } from '@/lib/api';
+import { getAddresses, addAddress, placeOrder, createRazorpayOrder, verifyPayment } from '@/lib/api';
 import { FiCheck, FiPlus } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
@@ -35,6 +35,72 @@ export default function CheckoutPage() {
 
   const deliveryCharge = cartTotal >= 499 ? 0 : 49;
   const finalTotal = cartTotal + deliveryCharge;
+
+  const loadRazorpayScript = () =>
+    new Promise((resolve, reject) => {
+      if (window.Razorpay) return resolve();
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.body.appendChild(script);
+    });
+
+  const initiateRazorpayPayment = async () => {
+    setPlacing(true);
+    try {
+      await loadRazorpayScript();
+      const { data } = await createRazorpayOrder(finalTotal);
+
+      const options = {
+        key: data.key,
+        amount: data.amount,
+        currency: data.currency,
+        name: 'GlamCart',
+        description: 'Order Payment',
+        order_id: data.orderId,
+        handler: async (response) => {
+          try {
+            await verifyPayment({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            const orderRes = await placeOrder({
+              addressId: selectedAddress,
+              paymentMethod,
+              couponCode: couponCode || undefined,
+              razorpayPaymentId: response.razorpay_payment_id,
+            });
+            await emptyCart();
+            toast.success('Payment successful! Order placed 🎉');
+            router.push(`/orders/${orderRes.data.id}`);
+          } catch {
+            toast.error('Payment verification failed. Contact support.');
+            setPlacing(false);
+          }
+        },
+        prefill: {
+          name: user?.name || '',
+          email: user?.email || '',
+          contact: user?.phone || '',
+        },
+        theme: { color: '#fc2779' },
+        modal: {
+          ondismiss: () => {
+            setPlacing(false);
+            toast('Payment cancelled', { icon: '❌' });
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to initiate payment');
+      setPlacing(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -74,6 +140,10 @@ export default function CheckoutPage() {
 
   const handlePlaceOrder = async () => {
     if (!selectedAddress) { toast.error('Please select a delivery address'); return; }
+    if (paymentMethod !== 'COD') {
+      await initiateRazorpayPayment();
+      return;
+    }
     setPlacing(true);
     try {
       const res = await placeOrder({ addressId: selectedAddress, paymentMethod, couponCode: couponCode || undefined });

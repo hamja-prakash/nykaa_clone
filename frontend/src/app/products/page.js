@@ -78,7 +78,17 @@ export default function ProductsPage() {
     <div className="max-w-7xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-nykaa-dark">{pageTitle}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-nykaa-dark">{pageTitle}</h1>
+            {search && (
+              <button
+                onClick={() => updateParam('search', '')}
+                className="flex items-center gap-1 text-sm text-nykaa-gray hover:text-nykaa-pink border border-nykaa-border rounded-full px-2 py-0.5 transition-colors"
+              >
+                <FiX size={12} /> Clear
+              </button>
+            )}
+          </div>
           {!loading && <p className="text-sm text-nykaa-gray mt-1">{total} products</p>}
         </div>
 
