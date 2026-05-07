@@ -1,27 +1,50 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { login } from '@/lib/api';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { login, addToCart } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signIn } = useAuth();
+  const { fetchCart } = useCart();
   const [form, setForm] = useState({ email: '', password: '' });
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const redirect = searchParams.get('redirect') || '/';
+  const addToCartId = searchParams.get('addToCart');
+  const qty = parseInt(searchParams.get('qty') || '1', 10);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!EMAIL_RE.test(form.email.trim())) { toast.error('Please enter a valid email address'); return; }
+    if (!form.password) { toast.error('Please enter your password'); return; }
+    if (form.password.length < 6) { toast.error('Password must be at least 6 characters'); return; }
     setLoading(true);
     try {
-      const res = await login(form);
+      const res = await login({ email: form.email.trim(), password: form.password });
       signIn(res.data.user, res.data.token);
       toast.success(`Welcome back, ${res.data.user.name}!`);
-      router.push('/');
+
+      if (addToCartId) {
+        try {
+          await addToCart(parseInt(addToCartId, 10), qty);
+          await fetchCart();
+          toast.success('Item added to your bag!');
+        } catch {
+          toast.error('Could not add item to bag. Please try again.');
+        }
+      }
+
+      router.push(redirect);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Login failed');
     } finally {
@@ -29,7 +52,7 @@ export default function LoginPage() {
     }
   };
 
-  const fillDemo = () => setForm({ email: 'demo@glamcart.com', password: 'password123' });
+  const fillDemo = () => setForm({ email: 'demo@glamcart.com', password: 'Demo@1234' });
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 bg-nykaa-pink-pale">
@@ -80,7 +103,7 @@ export default function LoginPage() {
         <div className="mt-4 p-3 bg-nykaa-pink-pale rounded-lg text-center">
           <p className="text-xs text-nykaa-gray mb-2">Try the demo account:</p>
           <button onClick={fillDemo} className="text-sm text-nykaa-pink font-semibold hover:underline">
-            demo@glamcart.com / password123
+            demo@glamcart.com / Demo@1234
           </button>
         </div>
 

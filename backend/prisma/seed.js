@@ -612,7 +612,7 @@ async function main() {
   }
 
   // Demo user
-  const hashedPassword = await bcrypt.hash('password123', 10);
+  const hashedPassword = await bcrypt.hash('Demo@1234', 10);
   await prisma.user.upsert({
     where: { email: 'demo@glamcart.com' },
     update: {},
@@ -624,23 +624,25 @@ async function main() {
     },
   });
 
-  // Coupon
-  await prisma.coupon.upsert({
-    where: { code: 'GLAMCART10' },
-    update: {},
-    create: {
-      code: 'GLAMCART10',
-      type: 'PERCENT',
-      value: 10,
-      minOrder: 500,
-      maxDiscount: 200,
-      usageLimit: 100,
-      isActive: true,
-    },
-  });
+  // Coupons
+  const coupons = [
+    { code: 'GLAMCART10', type: 'PERCENT', value: 10, minOrder: 500, maxDiscount: 200, usageLimit: 100 },
+    { code: 'FIRST50',    type: 'FLAT',    value: 50, minOrder: 299, maxDiscount: 50,  usageLimit: 50  },
+    { code: 'BEAUTY20',   type: 'PERCENT', value: 20, minOrder: 799, maxDiscount: 300, usageLimit: 80  },
+    { code: 'SKINCARE15', type: 'PERCENT', value: 15, minOrder: 599, maxDiscount: 250, usageLimit: 80  },
+    { code: 'FREESHIP',   type: 'FLAT',    value: 49, minOrder: 0,   maxDiscount: 49,  usageLimit: 200 },
+    { code: 'MEGA30',     type: 'PERCENT', value: 30, minOrder: 1499,maxDiscount: 500, usageLimit: 30  },
+  ];
+  for (const c of coupons) {
+    await prisma.coupon.upsert({
+      where: { code: c.code },
+      update: {},
+      create: { ...c, isActive: true },
+    });
+  }
 
   console.log('Database seeded successfully!');
-  console.log('Demo login: demo@glamcart.com / password123');
+  console.log('Demo login: demo@glamcart.com / Demo@1234');
 }
 
 main()

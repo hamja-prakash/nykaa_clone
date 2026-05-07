@@ -7,6 +7,9 @@ import { useAuth } from '@/context/AuthContext';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SPECIAL_CHAR_RE = /[!@#$%^&*()\-_=+\[\]{};:",.<>/?\\|`~]/;
+
 export default function RegisterPage() {
   const router = useRouter();
   const { signIn } = useAuth();
@@ -14,13 +17,22 @@ export default function RegisterPage() {
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const validate = () => {
+    if (form.name.trim().length < 2) { toast.error('Name must be at least 2 characters'); return false; }
+    if (!EMAIL_RE.test(form.email.trim())) { toast.error('Please enter a valid email address'); return false; }
+    if (form.phone && !/^\d{10}$/.test(form.phone.trim())) { toast.error('Phone number must be 10 digits'); return false; }
+    if (form.password.length < 8) { toast.error('Password must be at least 8 characters'); return false; }
+    if (!SPECIAL_CHAR_RE.test(form.password)) { toast.error('Password must contain at least one special character (e.g. @, #, $)'); return false; }
+    if (form.password !== form.confirmPassword) { toast.error('Passwords do not match'); return false; }
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (form.password !== form.confirmPassword) { toast.error('Passwords do not match'); return; }
-    if (form.password.length < 6) { toast.error('Password must be at least 6 characters'); return; }
+    if (!validate()) return;
     setLoading(true);
     try {
-      const res = await register({ name: form.name, email: form.email, phone: form.phone, password: form.password });
+      const res = await register({ name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim() || undefined, password: form.password });
       signIn(res.data.user, res.data.token);
       toast.success('Account created! Welcome to GlamCart 🎉');
       router.push('/');
@@ -78,6 +90,9 @@ export default function RegisterPage() {
                   </button>
                 )}
               </div>
+              {field === 'password' && (
+                <p className="text-xs text-nykaa-gray mt-1">Min. 8 characters with at least one special character (e.g. @, #, $)</p>
+              )}
             </div>
           ))}
 

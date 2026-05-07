@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getProduct, getProducts, addToWishlist, removeFromWishlist } from '@/lib/api';
 import { useCart } from '@/context/CartContext';
@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 
 export default function ProductDetailPage() {
   const { slug } = useParams();
+  const router = useRouter();
   const { addItem } = useCart();
   const { user } = useAuth();
   const [product, setProduct] = useState(null);
@@ -54,7 +55,7 @@ export default function ProductDetailPage() {
   const img = images[selectedImg] || `https://via.placeholder.com/600x600?text=${encodeURIComponent(product.name)}`;
 
   const handleWishlist = async () => {
-    if (!user) { toast.error('Please login'); return; }
+    if (!user) { router.push(`/login?redirect=/products/${slug}`); return; }
     try {
       if (wishlisted) { await removeFromWishlist(product.id); setWishlisted(false); toast.success('Removed from wishlist'); }
       else { await addToWishlist(product.id); setWishlisted(true); toast.success('Added to wishlist!'); }
@@ -151,7 +152,13 @@ export default function ProductDetailPage() {
           {/* CTA buttons */}
           <div className="flex gap-3 mb-6">
             <button
-              onClick={() => addItem(product.id, quantity)}
+              onClick={() => {
+                if (!user) {
+                  router.push(`/login?redirect=/products/${slug}&addToCart=${product.id}&qty=${quantity}`);
+                  return;
+                }
+                addItem(product.id, quantity);
+              }}
               disabled={product.stock === 0}
               className="btn-primary flex-1 flex items-center justify-center gap-2"
             >

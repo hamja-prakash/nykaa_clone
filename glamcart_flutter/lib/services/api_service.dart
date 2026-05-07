@@ -83,6 +83,7 @@ class ApiService {
   Future<Response> verifyPayment(Map<String, dynamic> data) => _dio.post('/payments/verify', data: data);
 
   // Coupons
+  Future<Response> getCoupons() => _dio.get('/coupons');
   Future<Response> validateCoupon(String code, double orderAmount) =>
       _dio.post('/coupons/validate', data: {'code': code, 'orderAmount': orderAmount});
 }

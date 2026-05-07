@@ -4,7 +4,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
-import { getAddresses, addAddress, placeOrder, createRazorpayOrder, verifyPayment } from '@/lib/api';
+import { getAddresses, addAddress, placeOrder, createRazorpayOrder, verifyPayment, validateCoupon } from '@/lib/api';
+import { FiTag } from 'react-icons/fi';
 import { FiCheck, FiPlus } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
@@ -28,13 +29,14 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState('COD');
   const [showAddAddress, setShowAddAddress] = useState(false);
   const [placing, setPlacing] = useState(false);
-  const [step, setStep] = useState(1); // 1: address, 2: payment, 3: confirm
+  const [step, setStep] = useState(1);
+  const [discount, setDiscount] = useState(0);
   const [newAddress, setNewAddress] = useState({
     name: user?.name || '', phone: user?.phone || '', line1: '', line2: '', city: '', state: '', pincode: '', type: 'HOME', isDefault: false
   });
 
   const deliveryCharge = cartTotal >= 499 ? 0 : 49;
-  const finalTotal = cartTotal + deliveryCharge;
+  const finalTotal = cartTotal + deliveryCharge - discount;
 
   const loadRazorpayScript = () =>
     new Promise((resolve, reject) => {
@@ -111,6 +113,13 @@ export default function CheckoutPage() {
     });
   }, [user]);
 
+  useEffect(() => {
+    if (!couponCode || !cartTotal) return;
+    validateCoupon(couponCode, cartTotal)
+      .then((res) => setDiscount(res.data.discount))
+      .catch(() => setDiscount(0));
+  }, [couponCode, cartTotal]);
+
   if (!user) return (
     <div className="max-w-lg mx-auto px-4 py-20 text-center">
       <h2 className="text-2xl font-bold mb-4">Please login to checkout</h2>
@@ -127,14 +136,17 @@ export default function CheckoutPage() {
 
   const handleAddAddress = async (e) => {
     e.preventDefault();
+    if (newAddress.name.trim().length < 2) { toast.error('Name must be at least 2 characters'); return; }
+    if (!/^\d{10}$/.test(newAddress.phone.trim())) { toast.error('Phone number must be 10 digits'); return; }
+    if (!/^\d{6}$/.test(newAddress.pincode.trim())) { toast.error('Pincode must be 6 digits'); return; }
     try {
       const res = await addAddress(newAddress);
       setAddresses([...addresses, res.data]);
       setSelectedAddress(res.data.id);
       setShowAddAddress(false);
       toast.success('Address added!');
-    } catch {
-      toast.error('Failed to add address');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to add address');
     }
   };
 
@@ -203,7 +215,7 @@ export default function CheckoutPage() {
                   <h3 className="font-semibold mb-3">Add New Address</h3>
                   <div className="grid grid-cols-2 gap-3">
                     <input required placeholder="Full Name" value={newAddress.name} onChange={(e) => setNewAddress({ ...newAddress, name: e.target.value })} className="input-field col-span-2" />
-                    <input required placeholder="Phone" value={newAddress.phone} onChange={(e) => setNewAddress({ ...newAddress, phone: e.target.value })} className="input-field" />
+                    <input required placeholder="Phone (10 digits)" value={newAddress.phone} onChange={(e) => setNewAddress({ ...newAddress, phone: e.target.value })} className="input-field" inputMode="numeric" maxLength={10} />
                     <select value={newAddress.type} onChange={(e) => setNewAddress({ ...newAddress, type: e.target.value })} className="input-field">
                       <option value="HOME">Home</option>
                       <option value="WORK">Work</option>
@@ -213,7 +225,7 @@ export default function CheckoutPage() {
                     <input placeholder="Address Line 2 (optional)" value={newAddress.line2} onChange={(e) => setNewAddress({ ...newAddress, line2: e.target.value })} className="input-field col-span-2" />
                     <input required placeholder="City" value={newAddress.city} onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })} className="input-field" />
                     <input required placeholder="State" value={newAddress.state} onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })} className="input-field" />
-                    <input required placeholder="Pincode" value={newAddress.pincode} onChange={(e) => setNewAddress({ ...newAddress, pincode: e.target.value })} className="input-field" />
+                    <input required placeholder="Pincode (6 digits)" value={newAddress.pincode} onChange={(e) => setNewAddress({ ...newAddress, pincode: e.target.value })} className="input-field" inputMode="numeric" maxLength={6} />
                   </div>
                   <div className="flex gap-3 mt-4">
                     <button type="submit" className="btn-primary">Save Address</button>
@@ -279,7 +291,7 @@ export default function CheckoutPage() {
                   disabled={placing}
                   className="btn-primary flex-1"
                 >
-                  {placing ? 'Placing Order...' : `Place Order ₹${finalTotal.toLocaleString()}`}
+                  {placing ? 'Placing Order...' : `Place Order — ₹${finalTotal.toLocaleString()}`}
                 </button>
               </div>
             </div>
@@ -296,14 +308,25 @@ export default function CheckoutPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-nykaa-gray">Delivery</span>
-              <span className={deliveryCharge === 0 ? 'text-green-600' : ''}>{deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge}`}</span>
+              <span className={deliveryCharge === 0 ? 'text-green-600 font-medium' : ''}>{deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge}`}</span>
             </div>
+            {discount > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span className="flex items-center gap-1"><FiTag size={12} /> Coupon ({couponCode})</span>
+                <span className="font-medium">− ₹{discount.toLocaleString()}</span>
+              </div>
+            )}
           </div>
           <hr className="border-nykaa-border mb-4" />
           <div className="flex justify-between font-bold text-lg">
             <span>Total</span>
             <span className="text-nykaa-pink">₹{finalTotal.toLocaleString()}</span>
           </div>
+          {discount > 0 && (
+            <p className="text-xs text-green-600 mt-2 text-center font-medium">
+              You save ₹{discount.toLocaleString()} on this order!
+            </p>
+          )}
         </div>
       </div>
     </div>

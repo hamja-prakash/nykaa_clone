@@ -29,7 +29,7 @@ description: Testing guidelines for GlamCart — what to test, how, and what to 
 ## Regression Checklist
 
 After any change, manually verify:
-1. Login/register still works (`demo@glamcart.com` / `password123`)
+1. Login/register still works (`demo@glamcart.com` / `Demo@1234`)
 2. Products load on homepage
 3. Cart add/remove/update works
 4. Wishlist toggles correctly

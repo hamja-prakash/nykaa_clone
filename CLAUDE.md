@@ -1,82 +1,104 @@
-# Nykaa Clone - Project Documentation
+# Nykaa Clone (GlamCart) — Project Guide for Claude Code
 
 ## Architecture
-- **Frontend**: Next.js 14 (App Router) + Tailwind CSS — runs on port 3000
-- **Backend**: Node.js + Express + Prisma ORM — runs on port 5001
-- **Database**: SQLite (local dev via Prisma)
+- **Frontend**: Next.js 14 (App Router) + Tailwind CSS → `frontend/` → port 3000
+- **Backend**: Node.js + Express + Prisma ORM → `backend/` → port 5002
+- **Database**: PostgreSQL at `127.0.0.1:5432/nykaa_latest`
+- **Payments**: Razorpay (test mode)
+- **Auth**: JWT (7-day expiry) + bcrypt
 
-## Quick Start
+## File Map (IMPORTANT — use this to locate files)
 
-### 1. Install dependencies
-```bash
-cd backend && npm install
-cd ../frontend && npm install
+### Backend (`backend/`)
+```
+backend/
+├── .env                          # DB URL, JWT secret, Razorpay keys
+├── prisma/
+│   ├── schema.prisma             # ALL database models defined here
+│   └── seed.js                   # Seed data (categories, brands, products, demo user, coupon)
+└── src/
+    ├── index.js                  # Express entry — all routes registered here
+    ├── middleware/auth.js         # JWT authenticate & authorizeAdmin middleware
+    ├── utils/jwt.js              # generateToken(payload) → 7-day JWT
+    └── routes/
+        ├── auth.js               # POST register, POST login, GET me
+        ├── products.js           # GET / (filters,search,pagination), GET /:slug
+        ├── categories.js         # GET / (top-level), GET /:slug
+        ├── brands.js             # GET /
+        ├── cart.js               # GET, POST, PATCH /:productId, DELETE /:productId, DELETE /
+        ├── wishlist.js           # GET, POST, DELETE /:productId
+        ├── orders.js             # GET, GET /:id, POST (place order from cart)
+        ├── users.js              # GET/PATCH profile, GET/POST/DELETE addresses
+        ├── coupons.js            # POST /validate
+        └── payments.js           # POST /create-order, POST /verify (Razorpay)
 ```
 
-### 2. Set up database
-```bash
-cd backend
-npx prisma migrate dev --name init
-node prisma/seed.js
+### Frontend (`frontend/`)
+```
+frontend/src/
+├── lib/api.js                    # ALL API calls (Axios). Auto-attaches JWT from localStorage.
+├── context/
+│   ├── AuthContext.js            # Login state, token management
+│   └── CartContext.js            # Cart state, add/remove/update
+├── components/                   # Header, Footer, ProductCard
+└── app/                          # Next.js App Router pages
 ```
 
-### 3. Run both servers
+## Database Models (schema.prisma)
+User, Address, Category (self-referencing tree), Brand, Product, CartItem, WishlistItem, Order, OrderItem, Review, Coupon
+
+## How to Add a New Feature
+
+### Pattern 1: Add new data (category, brand, product, coupon)
+- Edit `backend/prisma/seed.js` — follow existing `upsert` pattern
+- Run: `cd backend && node prisma/seed.js`
+- No route or API changes needed — existing endpoints serve them
+
+### Pattern 2: Add a new API route
+1. Create `backend/src/routes/newfeature.js` — copy structure from `cart.js` or `wishlist.js`
+2. Register in `backend/src/index.js`: `app.use('/api/newfeature', newfeatureRoutes);`
+3. Add API functions in `frontend/src/lib/api.js`
+4. Use in frontend components via `import { ... } from '@/lib/api'`
+
+### Pattern 3: Add a new DB model
+1. Add model in `backend/prisma/schema.prisma` — follow existing model patterns
+2. Run: `cd backend && npx prisma migrate dev --name description`
+3. Then follow Pattern 2 to add routes
+
+### Pattern 4: Modify existing feature
+- Backend logic: edit the relevant file in `backend/src/routes/`
+- Frontend API: edit `frontend/src/lib/api.js`
+- Frontend UI: edit components in `frontend/src/components/` or pages in `frontend/src/app/`
+
+## Conventions
+- Every route file creates its own `const prisma = new PrismaClient()`
+- Protected routes use `authenticate` middleware from `../middleware/auth`
+- Product lookup is by `slug` (not id) in public routes
+- Cart uses composite unique key: `userId_productId`
+- All route handlers use try/catch with generic error responses
+- Seed uses `upsert` so it's safe to run multiple times
+- Frontend stores token as `glamcart_token` in localStorage
+
+## Commands
 ```bash
-# Terminal 1 (backend)
+# Install
+cd backend && npm install && cd ../frontend && npm install
+
+# Database setup
+cd backend && npx prisma migrate dev --name init && node prisma/seed.js
+
+# Run backend (terminal 1)
 cd backend && npm run dev
 
-# Terminal 2 (frontend)
+# Run frontend (terminal 2)
 cd frontend && npm run dev
 ```
 
-### Demo credentials
-- Email: `demo@nykaa.com`
-- Password: `password123`
-- Coupon code: `NYKAA10` (10% off, min ₹500 order)
-
-## Project Structure
-```
-Nykaa_clone/
-├── backend/
-│   ├── prisma/
-│   │   ├── schema.prisma      # DB schema (User, Product, Order, Cart, Wishlist, etc.)
-│   │   └── seed.js            # Seed data (12 products, brands, categories)
-│   └── src/
-│       ├── index.js           # Express server entry
-│       ├── middleware/auth.js  # JWT authentication middleware
-│       ├── routes/            # auth, products, categories, brands, cart, wishlist, orders, users, coupons
-│       └── utils/jwt.js
-├── frontend/
-│   └── src/
-│       ├── app/               # Next.js App Router pages
-│       ├── components/        # Header, Footer, ProductCard
-│       ├── context/           # AuthContext, CartContext
-│       └── lib/api.js         # Axios API client
-└── package.json               # Monorepo scripts
-```
-
-## API Endpoints
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | /api/auth/register | - | Create account |
-| POST | /api/auth/login | - | Login |
-| GET | /api/auth/me | ✓ | Get current user |
-| GET | /api/products | - | List products (filters: category, brand, search, featured, bestseller, price) |
-| GET | /api/products/:slug | - | Get product details |
-| GET | /api/categories | - | List categories |
-| GET | /api/brands | - | List brands |
-| GET/POST | /api/cart | ✓ | Get/add cart items |
-| PATCH/DELETE | /api/cart/:productId | ✓ | Update/remove cart item |
-| GET/POST | /api/wishlist | ✓ | Get/add wishlist items |
-| DELETE | /api/wishlist/:productId | ✓ | Remove from wishlist |
-| GET/POST | /api/orders | ✓ | List orders / place order |
-| GET | /api/orders/:id | ✓ | Get order detail |
-| PATCH | /api/users/profile | ✓ | Update profile |
-| GET/POST | /api/users/addresses | ✓ | Manage addresses |
-| POST | /api/coupons/validate | ✓ | Validate coupon code |
+## Demo Credentials
+- Email: `demo@glamcart.com` / Password: `Demo@1234`
+- Coupon: `GLAMCART10` (10% off, min ₹500)
 
 ## Color Theme
-- **Primary Pink**: `#fc2779` (Nykaa's brand color)
-- **Dark Pink**: `#e01f6a`
-- **Light Pink**: `#ffe0ef`
-- **Pale Pink**: `#fff5f9`
+- Primary Pink: `#fc2779`
+- Dark Pink: `#e01f6a`
+- Light Pink: `#ffe0ef`

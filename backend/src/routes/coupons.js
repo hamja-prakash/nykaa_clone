@@ -4,6 +4,20 @@ const { authenticate } = require('../middleware/auth');
 
 const prisma = new PrismaClient();
 
+// GET /api/coupons — public list of active coupons
+router.get('/', async (req, res) => {
+  try {
+    const coupons = await prisma.coupon.findMany({
+      where: { isActive: true },
+      select: { code: true, type: true, value: true, minOrder: true, maxDiscount: true },
+      orderBy: { value: 'desc' },
+    });
+    res.json(coupons);
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch coupons' });
+  }
+});
+
 // POST /api/coupons/validate
 router.post('/validate', authenticate, async (req, res) => {
   try {

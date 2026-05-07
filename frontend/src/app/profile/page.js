@@ -25,9 +25,11 @@ export default function ProfilePage() {
 
   const handleUpdate = async (e) => {
     e.preventDefault();
+    if (form.name.trim().length < 2) { toast.error('Name must be at least 2 characters'); return; }
+    if (form.phone && !/^\d{10}$/.test(form.phone.trim())) { toast.error('Phone number must be 10 digits'); return; }
     setLoading(true);
     try {
-      const res = await updateProfile(form);
+      const res = await updateProfile({ name: form.name.trim(), phone: form.phone.trim() || undefined });
       signIn({ ...user, ...res.data }, localStorage.getItem('glamcart_token'));
       toast.success('Profile updated!');
       setEditing(false);

@@ -27,6 +27,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _placing = false;
   bool _loadingAddresses = true;
 
+  // Coupon state
+  String? _appliedCoupon;
+  double _discount = 0;
+  bool _couponLoading = false;
+  bool _showCoupons = false;
+  List<Map<String, dynamic>> _availableCoupons = _kStaticCoupons;
+
+  static const _kStaticCoupons = <Map<String, dynamic>>[
+    {'code': 'GLAMCART10', 'desc': '10% off up to ₹200', 'minOrder': 500.0},
+    {'code': 'FIRST50',    'desc': '₹50 flat off',        'minOrder': 299.0},
+    {'code': 'BEAUTY20',   'desc': '20% off up to ₹300', 'minOrder': 799.0},
+    {'code': 'SKINCARE15', 'desc': '15% off up to ₹250', 'minOrder': 599.0},
+    {'code': 'FREESHIP',   'desc': '₹49 off (free delivery)', 'minOrder': 0.0},
+    {'code': 'MEGA30',     'desc': '30% off up to ₹500', 'minOrder': 1499.0},
+  ];
+
   static const _paymentMethods = [
     {'id': 'COD', 'label': 'Cash on Delivery', 'icon': Icons.local_shipping_outlined},
     {'id': 'UPI', 'label': 'UPI Payment', 'icon': Icons.phone_android_outlined},
@@ -38,6 +54,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void initState() {
     super.initState();
     _fetchAddresses();
+    _fetchCoupons();
     _razorpay = Razorpay();
     _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _onPaymentSuccess);
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _onPaymentError);
@@ -69,9 +86,66 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  Future<void> _fetchCoupons() async {
+    try {
+      final res = await _api.getCoupons();
+      if (!mounted) return;
+      final list = res.data as List;
+      if (list.isNotEmpty) {
+        setState(() {
+          _availableCoupons = list.map((c) {
+            final type = c['type'] as String;
+            final value = (c['value'] as num).toDouble();
+            final maxDiscount = c['maxDiscount'] != null ? (c['maxDiscount'] as num).toDouble() : null;
+            final desc = type == 'PERCENT'
+                ? '${value.toInt()}% off${maxDiscount != null ? ' up to ₹${maxDiscount.toInt()}' : ''}'
+                : '₹${value.toInt()} flat off';
+            return {
+              'code': c['code'] as String,
+              'desc': desc,
+              'minOrder': (c['minOrder'] as num?)?.toDouble() ?? 0.0,
+            };
+          }).toList();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _applyCoupon(String code) async {
+    if (code.trim().isEmpty) return;
+    setState(() => _couponLoading = true);
+    try {
+      final res = await _api.validateCoupon(code.trim().toUpperCase(), _cartTotal);
+      final discount = (res.data['discount'] as num).toDouble();
+      if (!mounted) return;
+      setState(() {
+        _appliedCoupon = code.trim().toUpperCase();
+        _discount = discount;
+        _couponCtrl.text = code.trim().toUpperCase();
+        _showCoupons = false;
+      });
+      _snack('Coupon applied! You save ₹${discount.toStringAsFixed(0)}');
+    } catch (e) {
+      if (!mounted) return;
+      String msg = 'Invalid coupon';
+      try { msg = (e as dynamic).response?.data['error'] ?? msg; } catch (_) {}
+      _snack(msg, isError: true);
+    } finally {
+      if (mounted) setState(() => _couponLoading = false);
+    }
+  }
+
+  void _removeCoupon() {
+    setState(() {
+      _appliedCoupon = null;
+      _discount = 0;
+      _couponCtrl.clear();
+    });
+  }
+
   double get _cartTotal => context.read<CartProvider>().total;
   double get _deliveryCharge => _cartTotal >= 499 ? 0 : 49;
-  double get _finalTotal => _cartTotal + _deliveryCharge;
+  double get _finalTotal => _cartTotal + _deliveryCharge - _discount;
 
   Future<void> _placeOrder() async {
     if (_selectedAddressId == null) {
@@ -235,19 +309,171 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   _sectionCard(
                     title: 'Coupon Code',
                     icon: Icons.local_offer_outlined,
-                    child: TextField(
-                      controller: _couponCtrl,
-                      decoration: InputDecoration(
-                        hintText: 'e.g. GLAMCART10',
-                        hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
-                        filled: true,
-                        fillColor: const Color(0xFFF5F5F5),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                        suffixIcon: const Icon(Icons.local_offer_outlined, color: kPink, size: 20),
-                      ),
-                      textCapitalization: TextCapitalization.characters,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Input row
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _couponCtrl,
+                                enabled: _appliedCoupon == null,
+                                textCapitalization: TextCapitalization.characters,
+                                decoration: InputDecoration(
+                                  hintText: 'e.g. GLAMCART10',
+                                  hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF5F5F5),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                                  prefixIcon: const Icon(Icons.local_offer_outlined, color: kPink, size: 18),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _appliedCoupon != null
+                                ? TextButton(
+                                    onPressed: _removeCoupon,
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.red.shade600,
+                                      backgroundColor: Colors.red.shade50,
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                    child: const Text('Remove', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                  )
+                                : ElevatedButton(
+                                    onPressed: _couponLoading ? null : () => _applyCoupon(_couponCtrl.text),
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      elevation: 0,
+                                    ),
+                                    child: _couponLoading
+                                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                        : const Text('Apply', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                  ),
+                          ],
+                        ),
+
+                        // Applied confirmation
+                        if (_appliedCoupon != null) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.green.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.check_circle_outline, color: Colors.green.shade600, size: 15),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    '$_appliedCoupon applied — you save ₹${_discount.toStringAsFixed(0)}!',
+                                    style: TextStyle(color: Colors.green.shade700, fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        // Toggle to show coupons list
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: () => setState(() => _showCoupons = !_showCoupons),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.card_giftcard_outlined, color: kPink, size: 14),
+                              const SizedBox(width: 4),
+                              Text(
+                                'View available coupons (${_availableCoupons.length})',
+                                style: const TextStyle(color: kPink, fontSize: 12, fontWeight: FontWeight.w600),
+                              ),
+                              const Spacer(),
+                              Icon(_showCoupons ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                                  color: kPink, size: 18),
+                            ],
+                          ),
+                        ),
+
+                        // Coupon list
+                        if (_showCoupons) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.shade200),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Column(
+                              children: _availableCoupons.asMap().entries.map((entry) {
+                                final i = entry.key;
+                                final c = entry.value;
+                                final code = c['code'] as String;
+                                final isApplied = _appliedCoupon == code;
+                                final minOrder = (c['minOrder'] as double);
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    border: i == 0 ? null : Border(top: BorderSide(color: Colors.grey.shade200)),
+                                    color: isApplied ? Colors.green.shade50 : Colors.white,
+                                    borderRadius: i == 0
+                                        ? const BorderRadius.vertical(top: Radius.circular(10))
+                                        : i == _availableCoupons.length - 1
+                                            ? const BorderRadius.vertical(bottom: Radius.circular(10))
+                                            : BorderRadius.zero,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(code,
+                                                style: TextStyle(
+                                                    fontWeight: FontWeight.w800,
+                                                    fontSize: 13,
+                                                    letterSpacing: 0.5,
+                                                    color: isApplied ? Colors.green.shade700 : kDark)),
+                                            Text(c['desc'] as String,
+                                                style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                            if (minOrder > 0)
+                                              Text('Min order ₹${minOrder.toInt()}',
+                                                  style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
+                                          ],
+                                        ),
+                                      ),
+                                      GestureDetector(
+                                        onTap: _couponLoading ? null : () => isApplied ? _removeCoupon() : _applyCoupon(code),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                                          decoration: BoxDecoration(
+                                            color: isApplied ? Colors.green.shade100 : kPink,
+                                            borderRadius: BorderRadius.circular(20),
+                                            border: isApplied ? Border.all(color: Colors.green.shade300) : null,
+                                          ),
+                                          child: Text(
+                                            isApplied ? '✓ Applied' : 'Apply',
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: isApplied ? Colors.green.shade700 : Colors.white),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
 
@@ -284,6 +510,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           _deliveryCharge == 0 ? 'FREE' : '₹${_deliveryCharge.toStringAsFixed(0)}',
                           valueColor: _deliveryCharge == 0 ? Colors.green.shade600 : null,
                         ),
+                        if (_discount > 0) ...[
+                          const SizedBox(height: 4),
+                          _summaryRow(
+                            'Coupon Discount',
+                            '− ₹${_discount.toStringAsFixed(0)}',
+                            valueColor: Colors.green.shade600,
+                          ),
+                        ],
                         const Divider(height: 16),
                         _summaryRow(
                           'Total',

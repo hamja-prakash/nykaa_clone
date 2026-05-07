@@ -17,14 +17,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
+  final _confirmPassCtrl = TextEditingController();
   bool _obscure = true;
+  bool _obscureConfirm = true;
   String? _error;
+
+  static final _emailRe = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+  static final _specialCharRe = RegExp(r'[!@#$%^&*()\-_=+\[\]{};:",.<>/?\\|`~]');
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _passCtrl.dispose();
+    _confirmPassCtrl.dispose();
     super.dispose();
   }
 
@@ -111,7 +117,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
-                  validator: (v) => v!.trim().isEmpty ? 'Please enter your name' : null,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Please enter your name';
+                    if (v.trim().length < 2) return 'Name must be at least 2 characters';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -122,14 +132,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
-                  validator: (v) => v!.isEmpty ? 'Please enter your email' : null,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Please enter your email';
+                    if (!_emailRe.hasMatch(v.trim())) return 'Please enter a valid email address';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passCtrl,
                   decoration: InputDecoration(
                     labelText: 'Password',
-                    hintText: 'Min. 6 characters',
+                    hintText: 'Min. 8 characters with a special character',
                     prefixIcon: const Icon(Icons.lock_outline, color: Colors.grey),
                     suffixIcon: IconButton(
                       icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
@@ -138,9 +152,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   obscureText: _obscure,
+                  textInputAction: TextInputAction.next,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Please enter a password';
+                    if (v.length < 8) return 'Password must be at least 8 characters';
+                    if (!_specialCharRe.hasMatch(v)) return 'Password must contain at least one special character';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _confirmPassCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm Password',
+                    prefixIcon: const Icon(Icons.lock_outline, color: Colors.grey),
+                    suffixIcon: IconButton(
+                      icon: Icon(_obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                          color: Colors.grey),
+                      onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                    ),
+                  ),
+                  obscureText: _obscureConfirm,
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) => _submit(),
-                  validator: (v) => v!.length < 6 ? 'Password must be at least 6 characters' : null,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Please confirm your password';
+                    if (v != _passCtrl.text) return 'Passwords do not match';
+                    return null;
+                  },
                 ),
 
                 const SizedBox(height: 28),

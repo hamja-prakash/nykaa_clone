@@ -19,6 +19,8 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscure = true;
   String? _error;
 
+  static final _emailRe = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+
   @override
   void dispose() {
     _emailCtrl.dispose();
@@ -48,7 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _fillDemo() {
     _emailCtrl.text = 'demo@glamcart.com';
-    _passCtrl.text = 'password123';
+    _passCtrl.text = 'Demo@1234';
     setState(() {});
   }
 
@@ -94,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(width: 8),
                         const Expanded(
                           child: Text(
-                            'Demo: demo@glamcart.com / password123',
+                            'Demo: demo@glamcart.com / Demo@1234',
                             style: TextStyle(color: kPink, fontSize: 12, fontWeight: FontWeight.w500),
                           ),
                         ),
@@ -134,7 +136,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
-                  validator: (v) => v!.isEmpty ? 'Please enter your email' : null,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Please enter your email';
+                    if (!_emailRe.hasMatch(v.trim())) return 'Please enter a valid email address';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextFormField(

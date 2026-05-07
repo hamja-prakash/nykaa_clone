@@ -12,16 +12,18 @@ export function CartProvider({ children }) {
   const [loading, setLoading] = useState(false);
 
   const fetchCart = useCallback(async () => {
-    if (!user) { setCart([]); return; }
     try {
       const res = await getCart();
       setCart(res.data);
     } catch {
       setCart([]);
     }
-  }, [user]);
+  }, []);
 
-  useEffect(() => { fetchCart(); }, [fetchCart]);
+  useEffect(() => {
+    if (user) fetchCart();
+    else setCart([]);
+  }, [user, fetchCart]);
 
   const addItem = async (productId, quantity = 1, opts = {}) => {
     if (!user) { toast.error('Please login to add items to cart'); return; }

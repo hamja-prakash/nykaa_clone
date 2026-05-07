@@ -66,6 +66,7 @@ export const addAddress = (data) => api.post('/users/addresses', data);
 export const deleteAddress = (id) => api.delete(`/users/addresses/${id}`);
 
 // Coupons
+export const getCoupons = () => api.get('/coupons');
 export const validateCoupon = (code, orderAmount) =>
   api.post('/coupons/validate', { code, orderAmount });
 

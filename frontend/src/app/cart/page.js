@@ -1,11 +1,20 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
-import { validateCoupon } from '@/lib/api';
-import { FiTrash2, FiShoppingBag, FiTag } from 'react-icons/fi';
+import { getCoupons, validateCoupon } from '@/lib/api';
+import { FiTrash2, FiShoppingBag, FiTag, FiGift, FiChevronDown, FiChevronUp, FiCheck } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+
+const STATIC_COUPONS = [
+  { code: 'GLAMCART10', type: 'PERCENT', value: 10, minOrder: 500,  maxDiscount: 200, desc: '10% off up to ₹200' },
+  { code: 'FIRST50',    type: 'FLAT',    value: 50, minOrder: 299,  maxDiscount: 50,  desc: '₹50 flat off'      },
+  { code: 'BEAUTY20',   type: 'PERCENT', value: 20, minOrder: 799,  maxDiscount: 300, desc: '20% off up to ₹300'},
+  { code: 'SKINCARE15', type: 'PERCENT', value: 15, minOrder: 599,  maxDiscount: 250, desc: '15% off up to ₹250'},
+  { code: 'FREESHIP',   type: 'FLAT',    value: 49, minOrder: 0,    maxDiscount: 49,  desc: '₹49 off (free delivery)' },
+  { code: 'MEGA30',     type: 'PERCENT', value: 30, minOrder: 1499, maxDiscount: 500, desc: '30% off up to ₹500'},
+];
 
 export default function CartPage() {
   const { cart, cartTotal, updateItem, removeItem, loading } = useCart();
@@ -14,25 +23,53 @@ export default function CartPage() {
   const [discount, setDiscount] = useState(0);
   const [couponApplied, setCouponApplied] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
+  const [availableCoupons, setAvailableCoupons] = useState(STATIC_COUPONS);
+  const [showCoupons, setShowCoupons] = useState(false);
+
+  useEffect(() => {
+    getCoupons()
+      .then((res) => {
+        if (res.data?.length) {
+          const merged = res.data.map((c) => ({
+            ...c,
+            desc: c.type === 'PERCENT'
+              ? `${c.value}% off${c.maxDiscount ? ` up to ₹${c.maxDiscount}` : ''}`
+              : `₹${c.value} flat off`,
+          }));
+          setAvailableCoupons(merged);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const deliveryCharge = cartTotal >= 499 ? 0 : 49;
   const finalTotal = cartTotal + deliveryCharge - discount;
 
-  const handleApplyCoupon = async () => {
-    if (!coupon.trim()) return;
+  const applyCouponCode = async (code) => {
+    if (couponApplied === code) return;
     setCouponLoading(true);
     try {
-      const res = await validateCoupon(coupon, cartTotal);
+      const res = await validateCoupon(code, cartTotal);
       setDiscount(res.data.discount);
-      setCouponApplied(coupon.toUpperCase());
-      toast.success(`Coupon applied! ₹${res.data.discount} off`);
+      setCouponApplied(code);
+      setCoupon(code);
+      toast.success(`Coupon ${code} applied! ₹${res.data.discount} off`);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Invalid coupon');
-      setDiscount(0);
-      setCouponApplied('');
+      toast.error(err.response?.data?.error || 'Coupon not applicable');
     } finally {
       setCouponLoading(false);
     }
+  };
+
+  const handleApplyCoupon = async () => {
+    if (!coupon.trim()) return;
+    await applyCouponCode(coupon.trim().toUpperCase());
+  };
+
+  const removeCoupon = () => {
+    setCoupon('');
+    setDiscount(0);
+    setCouponApplied('');
   };
 
   if (!user) {
@@ -127,26 +164,87 @@ export default function CartPage() {
 
             {/* Coupon */}
             <div className="mb-4">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Enter coupon code"
-                  value={coupon}
-                  onChange={(e) => setCoupon(e.target.value.toUpperCase())}
-                  className="input-field py-2 text-sm flex-1"
-                />
-                <button
-                  onClick={handleApplyCoupon}
-                  disabled={couponLoading}
-                  className="bg-nykaa-pink text-white px-3 py-2 rounded text-sm font-semibold hover:bg-nykaa-pink-dark disabled:opacity-60"
-                >
-                  Apply
-                </button>
+              {/* Input row */}
+              <div className="flex gap-2 mb-2">
+                <div className="relative flex-1">
+                  <FiTag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-nykaa-gray" />
+                  <input
+                    type="text"
+                    placeholder="Enter coupon code"
+                    value={coupon}
+                    onChange={(e) => { setCoupon(e.target.value.toUpperCase()); if (couponApplied) removeCoupon(); }}
+                    className="input-field py-2 pl-8 text-sm w-full font-mono tracking-wider"
+                    disabled={!!couponApplied}
+                  />
+                </div>
+                {couponApplied ? (
+                  <button onClick={removeCoupon} className="px-3 py-2 rounded text-sm font-semibold border border-red-200 text-red-500 bg-red-50 hover:bg-red-100 whitespace-nowrap">
+                    Remove
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleApplyCoupon}
+                    disabled={couponLoading || !coupon.trim()}
+                    className="px-4 py-2 rounded text-sm font-bold bg-nykaa-pink text-white hover:bg-nykaa-pink-dark disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {couponLoading ? '...' : 'Apply'}
+                  </button>
+                )}
               </div>
+
+              {/* Applied confirmation */}
               {couponApplied && (
-                <div className="mt-2 flex items-center gap-1 text-green-600 text-sm">
-                  <FiTag size={14} />
-                  <span>Coupon <strong>{couponApplied}</strong> applied!</span>
+                <div className="flex items-center gap-1.5 text-green-600 text-xs mb-2 bg-green-50 border border-green-200 rounded px-2 py-1.5">
+                  <FiCheck size={13} />
+                  <span><strong>{couponApplied}</strong> applied — you save ₹{discount}!</span>
+                </div>
+              )}
+
+              {/* Collapsible coupon list */}
+              <button
+                onClick={() => setShowCoupons(!showCoupons)}
+                className="w-full flex items-center justify-between text-xs text-nykaa-pink font-semibold py-1.5 hover:opacity-80"
+              >
+                <span className="flex items-center gap-1">
+                  <FiGift size={12} /> View available coupons ({availableCoupons.length})
+                </span>
+                {showCoupons ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />}
+              </button>
+
+              {showCoupons && (
+                <div className="mt-1 border border-nykaa-border rounded-lg overflow-hidden">
+                  {availableCoupons.map((c, i) => {
+                    const isApplied = couponApplied === c.code;
+                    return (
+                      <div
+                        key={c.code}
+                        className={`flex items-center gap-3 px-3 py-2.5 ${i !== 0 ? 'border-t border-nykaa-border' : ''} ${isApplied ? 'bg-green-50' : 'bg-white hover:bg-nykaa-pink-pale'}`}
+                      >
+                        {/* Code + desc */}
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-black tracking-wider ${isApplied ? 'text-green-600' : 'text-nykaa-dark'}`}>
+                            {c.code}
+                          </p>
+                          <p className="text-xs text-nykaa-gray leading-tight mt-0.5">{c.desc}</p>
+                          {c.minOrder > 0 && (
+                            <p className="text-xs text-nykaa-gray opacity-60">Min order ₹{c.minOrder}</p>
+                          )}
+                        </div>
+                        {/* Apply / Applied */}
+                        <button
+                          onClick={() => isApplied ? removeCoupon() : applyCouponCode(c.code)}
+                          disabled={couponLoading}
+                          className={`text-xs font-bold px-3 py-1 rounded-full flex-shrink-0 transition-colors ${
+                            isApplied
+                              ? 'bg-green-100 text-green-600 border border-green-300'
+                              : 'bg-nykaa-pink text-white hover:bg-nykaa-pink-dark'
+                          }`}
+                        >
+                          {isApplied ? '✓ Applied' : 'Apply'}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
