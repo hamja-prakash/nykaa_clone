@@ -2,7 +2,10 @@ import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5002/api';
 
-const api = axios.create({ baseURL: API_URL });
+const api = axios.create({
+  baseURL: API_URL,
+  timeout: 10000,
+});
 
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
@@ -22,6 +25,16 @@ api.interceptors.response.use(
     return Promise.reject(err);
   }
 );
+
+export const getApiError = (err) => {
+  if (!err.response) {
+    if (err.code === 'ECONNABORTED') return 'Request timed out. Please try again.'
+    if (typeof navigator !== 'undefined' && !navigator.onLine)
+      return 'No internet connection. Please check your network.'
+    return 'Server is unavailable. Please try again later.'
+  }
+  return err.response.data?.error || `Something went wrong (${err.response.status})`
+}
 
 // Auth
 export const register = (data) => api.post('/auth/register', data);

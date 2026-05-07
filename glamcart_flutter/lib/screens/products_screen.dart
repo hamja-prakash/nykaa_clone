@@ -25,6 +25,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   final _searchCtrl = TextEditingController();
   List<Product> _products = [];
   bool _loading = true;
+  String? _error;
   String _sort = '';
 
   @override
@@ -40,7 +41,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<void> _fetchProducts() async {
-    setState(() => _loading = true);
+    setState(() { _loading = true; _error = null; });
     try {
       final params = <String, dynamic>{};
       if (widget.category != null) params['category'] = widget.category;
@@ -55,8 +56,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
         _products = products;
         _loading = false;
       });
-    } catch (_) {
-      setState(() => _loading = false);
+    } catch (e) {
+      setState(() {
+        _loading = false;
+        _error = ApiService.getErrorMessage(e);
+      });
     }
   }
 
@@ -139,7 +143,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
           Expanded(
             child: _loading
                 ? _buildShimmer()
-                : _products.isEmpty
+                : _error != null
+                    ? _buildError()
+                    : _products.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -203,16 +209,55 @@ class _ProductsScreenState extends State<ProductsScreen> {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
       return;
     }
-    await context.read<CartProvider>().addToCart(p.id);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('${p.name} added to cart'),
-        backgroundColor: kPink,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: const Duration(seconds: 2),
-      ));
+    try {
+      await context.read<CartProvider>().addToCart(p.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('${p.name} added to cart'),
+          backgroundColor: kPink,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 2),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(ApiService.getErrorMessage(e)),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+      }
     }
+  }
+
+  Widget _buildError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.wifi_off_outlined, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(_error!, textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 15, color: Colors.grey)),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: _fetchProducts,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try Again'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kPink,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildShimmer() {

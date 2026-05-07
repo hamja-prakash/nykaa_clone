@@ -89,6 +89,7 @@ class _HomeTabState extends State<_HomeTab> {
   List<Product> _featured = [];
   List<Product> _bestsellers = [];
   bool _loading = true;
+  String? _error;
 
   static const _categories = [
     {'name': 'Makeup', 'slug': 'makeup', 'emoji': '💄'},
@@ -106,7 +107,7 @@ class _HomeTabState extends State<_HomeTab> {
   }
 
   Future<void> _fetch() async {
-    setState(() => _loading = true);
+    setState(() { _loading = true; _error = null; });
     try {
       final r1 = await _api.getProducts(params: {'featured': 'true'});
       final r2 = await _api.getProducts(params: {'bestseller': 'true'});
@@ -117,8 +118,8 @@ class _HomeTabState extends State<_HomeTab> {
         _bestsellers = (d2 as List).take(6).map((e) => Product.fromJson(e)).toList();
         _loading = false;
       });
-    } catch (_) {
-      setState(() => _loading = false);
+    } catch (e) {
+      setState(() { _loading = false; _error = ApiService.getErrorMessage(e); });
     }
   }
 
@@ -180,6 +181,32 @@ class _HomeTabState extends State<_HomeTab> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: kPink))
+          : _error != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.wifi_off_outlined, size: 64, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    Text(_error!, textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 15, color: Colors.grey)),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: _fetch,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Try Again'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kPink,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
           : RefreshIndicator(
               color: kPink,
               onRefresh: _fetch,
@@ -407,15 +434,26 @@ class _HomeTabState extends State<_HomeTab> {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
       return;
     }
-    await context.read<CartProvider>().addToCart(p.id);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('${p.name} added to cart'),
-        backgroundColor: kPink,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: const Duration(seconds: 2),
-      ));
+    try {
+      await context.read<CartProvider>().addToCart(p.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('${p.name} added to cart'),
+          backgroundColor: kPink,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 2),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(ApiService.getErrorMessage(e)),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+      }
     }
   }
 

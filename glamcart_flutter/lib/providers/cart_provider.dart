@@ -22,7 +22,7 @@ class CartProvider extends ChangeNotifier {
       final list = data is List ? data : (data['items'] ?? data['cart'] ?? []);
       _items = (list as List).map((e) => CartItem.fromJson(e)).toList();
     } catch (_) {
-      _items = [];
+      // Keep existing items on fetch failure to avoid clearing a valid cart
     } finally {
       _loading = false;
       notifyListeners();
@@ -30,17 +30,17 @@ class CartProvider extends ChangeNotifier {
   }
 
   Future<void> addToCart(int productId) async {
-    await _api.addToCart(productId);
+    await _api.addToCart(productId); // throws on failure — caller handles
     await fetchCart();
   }
 
   Future<void> updateItem(int productId, int quantity) async {
-    await _api.updateCartItem(productId, quantity);
+    await _api.updateCartItem(productId, quantity); // throws on failure
     await fetchCart();
   }
 
   Future<void> removeItem(int productId) async {
-    await _api.removeFromCart(productId);
+    await _api.removeFromCart(productId); // throws on failure
     _items.removeWhere((i) => i.product.id == productId);
     notifyListeners();
   }

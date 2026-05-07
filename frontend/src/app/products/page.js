@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { getProducts } from '@/lib/api';
+import { getProducts, getApiError } from '@/lib/api';
 import ProductCard from '@/components/ProductCard';
 import { FiFilter, FiX, FiChevronDown } from 'react-icons/fi';
 
@@ -22,6 +22,7 @@ export default function ProductsPage() {
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const category = searchParams.get('category') || '';
@@ -35,6 +36,7 @@ export default function ProductsPage() {
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = { page, limit: 20 };
       if (category) params.category = category;
@@ -49,7 +51,8 @@ export default function ProductsPage() {
       setProducts(res.data.products);
       setTotal(res.data.total);
       setPages(res.data.pages);
-    } catch {
+    } catch (err) {
+      setError(getApiError(err));
       setProducts([]);
     } finally {
       setLoading(false);
@@ -205,6 +208,12 @@ export default function ProductsPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          ) : error ? (
+            <div className="text-center py-20">
+              <div className="text-6xl mb-4">📡</div>
+              <h3 className="text-xl font-semibold text-nykaa-dark mb-2">{error}</h3>
+              <button onClick={fetchProducts} className="btn-primary mt-4 px-8">Try Again</button>
             </div>
           ) : products.length === 0 ? (
             <div className="text-center py-20">

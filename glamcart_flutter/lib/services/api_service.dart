@@ -13,6 +13,24 @@ class ApiService {
     receiveTimeout: const Duration(seconds: 10),
   ));
 
+  static String getErrorMessage(Object e) {
+    if (e is DioException) {
+      switch (e.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          return 'Request timed out. Please try again.';
+        case DioExceptionType.connectionError:
+          return 'Server is unavailable. Please try again later.';
+        default:
+          final data = e.response?.data;
+          if (data is Map && data['error'] != null) return data['error'] as String;
+          return 'Something went wrong (${e.response?.statusCode ?? 'unknown'})';
+      }
+    }
+    return 'An unexpected error occurred.';
+  }
+
   void init() {
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {

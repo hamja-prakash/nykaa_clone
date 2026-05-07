@@ -21,6 +21,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   final _api = ApiService();
   Product? _product;
   bool _loading = true;
+  String? _error;
   int _imageIndex = 0;
   bool _addingToCart = false;
 
@@ -31,6 +32,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _fetch() async {
+    setState(() { _loading = true; _error = null; });
     try {
       final res = await _api.getProduct(widget.slug);
       final data = res.data;
@@ -38,8 +40,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         _product = Product.fromJson(data is Map && data.containsKey('product') ? data['product'] : data);
         _loading = false;
       });
-    } catch (_) {
-      setState(() => _loading = false);
+    } catch (e) {
+      setState(() { _loading = false; _error = ApiService.getErrorMessage(e); });
     }
   }
 
@@ -49,20 +51,32 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       return;
     }
     setState(() => _addingToCart = true);
-    await context.read<CartProvider>().addToCart(_product!.id);
-    setState(() => _addingToCart = false);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('Added to cart!'),
-        backgroundColor: kPink,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        action: SnackBarAction(
-          label: 'View Cart',
-          textColor: Colors.white,
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CartScreen())),
-        ),
-      ));
+    try {
+      await context.read<CartProvider>().addToCart(_product!.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Added to cart!'),
+          backgroundColor: kPink,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          action: SnackBarAction(
+            label: 'View Cart',
+            textColor: Colors.white,
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CartScreen())),
+          ),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(ApiService.getErrorMessage(e)),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _addingToCart = false);
     }
   }
 
@@ -74,10 +88,37 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         body: const Center(child: CircularProgressIndicator(color: kPink)),
       );
     }
-    if (_product == null) {
+    if (_error != null || _product == null) {
       return Scaffold(
         appBar: AppBar(backgroundColor: Colors.white, surfaceTintColor: Colors.white),
-        body: const Center(child: Text('Product not found')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.wifi_off_outlined, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                Text(_error ?? 'Product not found',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 15, color: Colors.grey)),
+                if (_error != null) ...[
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: _fetch,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Try Again'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: kPink,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
       );
     }
 

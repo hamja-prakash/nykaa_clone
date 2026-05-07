@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getProducts, getCategories } from '@/lib/api';
+import { getProducts, getCategories, getApiError } from '@/lib/api';
 import ProductCard from '@/components/ProductCard';
 import { FiArrowRight } from 'react-icons/fi';
 
@@ -38,6 +38,7 @@ export default function HomePage() {
   const [bestSellers, setBestSellers] = useState([]);
   const [heroIndex, setHeroIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     Promise.all([
@@ -46,6 +47,8 @@ export default function HomePage() {
     ]).then(([featured, best]) => {
       setFeaturedProducts(featured.data.products);
       setBestSellers(best.data.products);
+    }).catch((err) => {
+      setError(getApiError(err));
     }).finally(() => setLoading(false));
 
     const timer = setInterval(() => setHeroIndex((i) => (i + 1) % HERO_SLIDES.length), 5000);
@@ -128,6 +131,12 @@ export default function HomePage() {
                 </div>
               </div>
             ))}
+          </div>
+        ) : error ? (
+          <div className="text-center py-12 text-nykaa-gray">
+            <div className="text-5xl mb-3">📡</div>
+            <p className="font-medium mb-3">{error}</p>
+            <button onClick={() => window.location.reload()} className="btn-primary px-8">Try Again</button>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

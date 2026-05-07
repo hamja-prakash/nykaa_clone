@@ -20,6 +20,16 @@ app.use(cors({ origin: ['http://localhost:3000', 'http://localhost:3001'], crede
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const ms = Date.now() - start;
+    const color = res.statusCode >= 500 ? '\x1b[31m' : res.statusCode >= 400 ? '\x1b[33m' : '\x1b[32m';
+    console.log(`${color}${req.method}\x1b[0m ${req.originalUrl} → ${res.statusCode} (${ms}ms)`);
+  });
+  next();
+});
+
 app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'GlamCart API running' }));
 
 app.use('/api/auth', authRoutes);
