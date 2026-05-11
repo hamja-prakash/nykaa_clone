@@ -1,13 +1,9 @@
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../db');
 const { generateToken } = require('../utils/jwt');
 const { authenticate } = require('../middleware/auth');
-
-const prisma = new PrismaClient();
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const SPECIAL_CHAR_RE = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/;
+const { validateEmail, validatePassword, validatePhone } = require('../utils/validate');
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
@@ -19,17 +15,16 @@ router.post('/register', async (req, res) => {
     if (name.trim().length < 2) {
       return res.status(400).json({ error: 'Name must be at least 2 characters' });
     }
-    if (!EMAIL_RE.test(email)) {
-      return res.status(400).json({ error: 'Please enter a valid email address' });
-    }
-    if (password.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    }
-    if (!SPECIAL_CHAR_RE.test(password)) {
-      return res.status(400).json({ error: 'Password must contain at least one special character' });
-    }
-    if (phone && !/^\d{10}$/.test(phone.trim())) {
-      return res.status(400).json({ error: 'Phone number must be 10 digits' });
+
+    const emailErr = validateEmail(email);
+    if (emailErr) return res.status(400).json({ error: emailErr });
+
+    const passwordErr = validatePassword(password);
+    if (passwordErr) return res.status(400).json({ error: passwordErr });
+
+    if (phone) {
+      const phoneErr = validatePhone(phone);
+      if (phoneErr) return res.status(400).json({ error: phoneErr });
     }
 
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -54,7 +49,9 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
-    if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'Please enter a valid email address' });
+
+    const emailErr = validateEmail(email);
+    if (emailErr) return res.status(400).json({ error: emailErr });
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });

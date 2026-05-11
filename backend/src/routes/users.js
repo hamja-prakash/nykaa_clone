@@ -1,10 +1,8 @@
 const router = require('express').Router();
-const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
+const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
-
-const prisma = new PrismaClient();
-const SPECIAL_CHAR_RE = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/;
+const { validatePassword, validatePhone, validatePincode, parseIntParam } = require('../utils/validate');
 
 // GET /api/users/profile
 router.get('/profile', authenticate, async (req, res) => {
@@ -26,8 +24,9 @@ router.patch('/profile', authenticate, async (req, res) => {
     if (name !== undefined && name.trim().length < 2) {
       return res.status(400).json({ error: 'Name must be at least 2 characters' });
     }
-    if (phone && !/^\d{10}$/.test(phone.trim())) {
-      return res.status(400).json({ error: 'Phone number must be 10 digits' });
+    if (phone) {
+      const phoneErr = validatePhone(phone);
+      if (phoneErr) return res.status(400).json({ error: phoneErr });
     }
     const user = await prisma.user.update({
       where: { id: req.user.id },
@@ -47,15 +46,11 @@ router.post('/change-password', authenticate, async (req, res) => {
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: 'Current and new passwords are required' });
     }
-    if (newPassword.length < 8) {
-      return res.status(400).json({ error: 'New password must be at least 8 characters' });
-    }
-    if (!SPECIAL_CHAR_RE.test(newPassword)) {
-      return res.status(400).json({ error: 'New password must contain at least one special character' });
-    }
+
+    const passwordErr = validatePassword(newPassword);
+    if (passwordErr) return res.status(400).json({ error: passwordErr });
 
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-
     const valid = await bcrypt.compare(currentPassword, user.password);
     if (!valid) return res.status(400).json({ error: 'Current password is incorrect' });
 
@@ -87,12 +82,13 @@ router.post('/addresses', authenticate, async (req, res) => {
     if (name.trim().length < 2) {
       return res.status(400).json({ error: 'Name must be at least 2 characters' });
     }
-    if (!/^\d{10}$/.test(phone.trim())) {
-      return res.status(400).json({ error: 'Phone number must be 10 digits' });
-    }
-    if (!/^\d{6}$/.test(pincode.toString().trim())) {
-      return res.status(400).json({ error: 'Pincode must be 6 digits' });
-    }
+
+    const phoneErr = validatePhone(phone);
+    if (phoneErr) return res.status(400).json({ error: phoneErr });
+
+    const pincodeErr = validatePincode(pincode);
+    if (pincodeErr) return res.status(400).json({ error: pincodeErr });
+
     if (isDefault) {
       await prisma.address.updateMany({ where: { userId: req.user.id }, data: { isDefault: false } });
     }
@@ -108,7 +104,9 @@ router.post('/addresses', authenticate, async (req, res) => {
 // DELETE /api/users/addresses/:id
 router.delete('/addresses/:id', authenticate, async (req, res) => {
   try {
-    await prisma.address.deleteMany({ where: { id: parseInt(req.params.id), userId: req.user.id } });
+    const id = parseIntParam(req.params.id);
+    if (!id) return res.status(400).json({ error: 'Invalid address ID' });
+    await prisma.address.deleteMany({ where: { id, userId: req.user.id } });
     res.json({ message: 'Address deleted' });
   } catch {
     res.status(500).json({ error: 'Failed to delete address' });

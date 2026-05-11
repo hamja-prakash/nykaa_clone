@@ -1,8 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getProducts, getCategories, getApiError } from '@/lib/api';
+import { getProducts, getApiError } from '@/lib/api';
 import ProductCard from '@/components/ProductCard';
+import ErrorState from '@/components/ui/ErrorState';
+import LoadingGrid from '@/components/ui/LoadingGrid';
 import { FiArrowRight } from 'react-icons/fi';
 
 const HERO_SLIDES = [
@@ -120,24 +122,9 @@ export default function HomePage() {
           </Link>
         </div>
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="card animate-pulse">
-                <div className="aspect-[3/4] bg-gray-200 rounded-t-lg" />
-                <div className="p-3 space-y-2">
-                  <div className="h-3 bg-gray-200 rounded w-1/2" />
-                  <div className="h-4 bg-gray-200 rounded" />
-                  <div className="h-4 bg-gray-200 rounded w-3/4" />
-                </div>
-              </div>
-            ))}
-          </div>
+          <LoadingGrid count={8} />
         ) : error ? (
-          <div className="text-center py-12 text-nykaa-gray">
-            <div className="text-5xl mb-3">📡</div>
-            <p className="font-medium mb-3">{error}</p>
-            <button onClick={() => window.location.reload()} className="btn-primary px-8">Try Again</button>
-          </div>
+          <ErrorState message={error} onRetry={() => window.location.reload()} className="py-12" />
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {featuredProducts.map((product) => (

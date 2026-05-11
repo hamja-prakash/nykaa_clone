@@ -42,6 +42,16 @@ export default function CartPage() {
       .catch(() => {});
   }, []);
 
+  // Reset coupon when cart total changes — the saved discount amount is stale
+  useEffect(() => {
+    if (couponApplied) {
+      setDiscount(0);
+      setCouponApplied('');
+      setCoupon('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartTotal]);
+
   const deliveryCharge = cartTotal >= 499 ? 0 : 49;
   const finalTotal = cartTotal + deliveryCharge - discount;
 

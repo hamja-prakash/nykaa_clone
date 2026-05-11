@@ -1,7 +1,6 @@
 const router = require('express').Router();
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+const prisma = require('../db');
+const { parseFloatParam } = require('../utils/validate');
 
 // GET /api/products
 router.get('/', async (req, res) => {
@@ -13,10 +12,12 @@ router.get('/', async (req, res) => {
     if (brand) where.brand = { slug: brand };
     if (featured === 'true') where.isFeatured = true;
     if (bestseller === 'true') where.isBestSeller = true;
-    if (minPrice || maxPrice) {
+    const min = parseFloatParam(minPrice);
+    const max = parseFloatParam(maxPrice);
+    if (min !== null || max !== null) {
       where.price = {};
-      if (minPrice) where.price.gte = parseFloat(minPrice);
-      if (maxPrice) where.price.lte = parseFloat(maxPrice);
+      if (min !== null) where.price.gte = min;
+      if (max !== null) where.price.lte = max;
     }
     if (search) {
       where.OR = [

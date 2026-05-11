@@ -3,7 +3,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { getProducts, getApiError } from '@/lib/api';
 import ProductCard from '@/components/ProductCard';
-import { FiFilter, FiX, FiChevronDown } from 'react-icons/fi';
+import ErrorState from '@/components/ui/ErrorState';
+import LoadingGrid from '@/components/ui/LoadingGrid';
+import { FiFilter, FiX } from 'react-icons/fi';
+import toast from 'react-hot-toast';
 
 const CATEGORIES = ['makeup', 'skincare', 'haircare', 'fragrance', 'bath-body', 'wellness'];
 const SORT_OPTIONS = [
@@ -166,7 +169,16 @@ export default function ProductsPage() {
                   className="input-field py-1.5 text-xs w-1/2"
                 />
               </div>
-              <button onClick={fetchProducts} className="btn-primary w-full mt-3 py-1.5 text-sm">Apply</button>
+              <button
+                onClick={() => {
+                  if (minPrice && maxPrice && parseFloat(minPrice) > parseFloat(maxPrice)) {
+                    toast.error('Min price cannot be greater than max price');
+                    return;
+                  }
+                  fetchProducts();
+                }}
+                className="btn-primary w-full mt-3 py-1.5 text-sm"
+              >Apply</button>
             </div>
 
             {/* Quick filters */}
@@ -197,24 +209,9 @@ export default function ProductsPage() {
         {/* Product grid */}
         <div className="flex-1">
           {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {[...Array(12)].map((_, i) => (
-                <div key={i} className="card animate-pulse">
-                  <div className="aspect-[3/4] bg-gray-200 rounded-t-lg" />
-                  <div className="p-3 space-y-2">
-                    <div className="h-3 bg-gray-200 rounded w-1/2" />
-                    <div className="h-4 bg-gray-200 rounded" />
-                    <div className="h-4 bg-gray-200 rounded w-3/4" />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <LoadingGrid count={12} cols="grid-cols-2 md:grid-cols-3 lg:grid-cols-4" />
           ) : error ? (
-            <div className="text-center py-20">
-              <div className="text-6xl mb-4">📡</div>
-              <h3 className="text-xl font-semibold text-nykaa-dark mb-2">{error}</h3>
-              <button onClick={fetchProducts} className="btn-primary mt-4 px-8">Try Again</button>
-            </div>
+            <ErrorState message={error} onRetry={fetchProducts} />
           ) : products.length === 0 ? (
             <div className="text-center py-20">
               <div className="text-6xl mb-4">🔍</div>

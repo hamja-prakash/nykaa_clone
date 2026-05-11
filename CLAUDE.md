@@ -18,8 +18,10 @@ backend/
 │   └── seed.js                   # Seed data (categories, brands, products, demo user, coupon)
 └── src/
     ├── index.js                  # Express entry — all routes registered here
+    ├── db.js                     # Singleton PrismaClient — import this in every route
     ├── middleware/auth.js         # JWT authenticate & authorizeAdmin middleware
     ├── utils/jwt.js              # generateToken(payload) → 7-day JWT
+    ├── utils/validate.js         # Shared validators: validateEmail, validatePassword, validatePhone, validatePincode
     └── routes/
         ├── auth.js               # POST register, POST login, GET me
         ├── products.js           # GET / (filters,search,pagination), GET /:slug
@@ -40,7 +42,11 @@ frontend/src/
 ├── context/
 │   ├── AuthContext.js            # Login state, token management
 │   └── CartContext.js            # Cart state, add/remove/update
-├── components/                   # Header, Footer, ProductCard
+├── components/
+│   ├── Header.js, Footer.js, ProductCard.js
+│   └── ui/
+│       ├── ErrorState.js         # Reusable error block (icon + message + optional retry button)
+│       └── LoadingGrid.js        # Reusable skeleton loading grid
 └── app/                          # Next.js App Router pages
 ```
 
@@ -71,13 +77,16 @@ User, Address, Category (self-referencing tree), Brand, Product, CartItem, Wishl
 - Frontend UI: edit components in `frontend/src/components/` or pages in `frontend/src/app/`
 
 ## Conventions
-- Every route file creates its own `const prisma = new PrismaClient()`
+- **Prisma**: Import singleton from `../db` — NEVER instantiate `new PrismaClient()` in route files
+- **Validators**: Use helpers from `../utils/validate.js` for email, password, phone, pincode checks
 - Protected routes use `authenticate` middleware from `../middleware/auth`
 - Product lookup is by `slug` (not id) in public routes
 - Cart uses composite unique key: `userId_productId`
 - All route handlers use try/catch with generic error responses
 - Seed uses `upsert` so it's safe to run multiple times
 - Frontend stores token as `glamcart_token` in localStorage
+- **Error UI**: Use `<ErrorState>` from `@/components/ui/ErrorState` — not inline divs
+- **Loading UI**: Use `<LoadingGrid>` from `@/components/ui/LoadingGrid` — not inline skeletons
 
 ## Commands
 ```bash

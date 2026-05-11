@@ -27,7 +27,7 @@ export default function LoginPage() {
     e.preventDefault();
     if (!EMAIL_RE.test(form.email.trim())) { toast.error('Please enter a valid email address'); return; }
     if (!form.password) { toast.error('Please enter your password'); return; }
-    if (form.password.length < 6) { toast.error('Password must be at least 6 characters'); return; }
+    if (form.password.length < 8) { toast.error('Password must be at least 8 characters'); return; }
     setLoading(true);
     try {
       const res = await login({ email: form.email.trim(), password: form.password });

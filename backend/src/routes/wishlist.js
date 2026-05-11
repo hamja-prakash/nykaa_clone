@@ -1,8 +1,6 @@
 const router = require('express').Router();
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
-
-const prisma = new PrismaClient();
 
 router.get('/', authenticate, async (req, res) => {
   try {
