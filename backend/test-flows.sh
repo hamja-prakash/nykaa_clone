@@ -27,7 +27,7 @@ assert_status() {
 
 # ─── Health ───────────────────────────────────────────────────────────────────
 section "Health Check"
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/../health")
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/health")
 assert_status "GET /health" "200" "$STATUS"
 
 # ─── Auth — Happy Path ────────────────────────────────────────────────────────
