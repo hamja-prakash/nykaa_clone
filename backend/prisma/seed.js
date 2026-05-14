@@ -624,6 +624,20 @@ async function main() {
     },
   });
 
+  // Admin user
+  const hashedAdminPassword = await bcrypt.hash('Admin@1234', 10);
+  await prisma.user.upsert({
+    where: { email: 'admin@glamcart.com' },
+    update: { role: 'ADMIN' },
+    create: {
+      email: 'admin@glamcart.com',
+      password: hashedAdminPassword,
+      name: 'GlamCart Admin',
+      phone: '9000000000',
+      role: 'ADMIN',
+    },
+  });
+
   // Coupons
   const coupons = [
     { code: 'GLAMCART10', type: 'PERCENT', value: 10, minOrder: 500, maxDiscount: 200, usageLimit: 100 },
@@ -642,7 +656,8 @@ async function main() {
   }
 
   console.log('Database seeded successfully!');
-  console.log('Demo login: demo@glamcart.com / Demo@1234');
+  console.log('Demo login:  demo@glamcart.com  / Demo@1234');
+  console.log('Admin login: admin@glamcart.com / Admin@1234');
 }
 
 main()

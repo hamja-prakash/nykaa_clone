@@ -1,17 +1,15 @@
-import { Inter } from 'next/font/google';
-import './globals.css';
-import { Toaster } from 'react-hot-toast';
-import { AuthProvider } from '@/context/AuthContext';
-import { CartProvider } from '@/context/CartContext';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+import { Inter } from 'next/font/google'
+import './globals.css'
+import { Toaster } from 'react-hot-toast'
+import { AuthProvider } from '@/context/AuthContext'
+import { CartProvider } from '@/context/CartContext'
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
   title: 'GlamCart - Beauty & Wellness Shopping',
   description: 'Shop makeup, skincare, haircare, fragrance & wellness products from top brands on GlamCart.com.',
-};
+}
 
 export default function RootLayout({ children }) {
   return (
@@ -19,13 +17,7 @@ export default function RootLayout({ children }) {
       <body className={inter.className}>
         <AuthProvider>
           <CartProvider>
-            <div className="flex flex-col min-h-screen">
-              <Header />
-              <main className="flex-1">
-                {children}
-              </main>
-              <Footer />
-            </div>
+            {children}
             <Toaster
               position="top-center"
               toastOptions={{
@@ -38,5 +30,5 @@ export default function RootLayout({ children }) {
         </AuthProvider>
       </body>
     </html>
-  );
+  )
 }
