@@ -87,4 +87,19 @@ export const validateCoupon = (code, orderAmount) =>
 export const createRazorpayOrder = (amount) => api.post('/payments/create-order', { amount });
 export const verifyPayment = (data) => api.post('/payments/verify', data);
 
+// Admin
+export const adminGetStats = () => api.get('/admin/stats');
+export const adminGetProducts = (params) => api.get('/admin/products', { params });
+export const adminCreateProduct = (data) => api.post('/admin/products', data);
+export const adminUpdateProduct = (id, data) => api.put(`/admin/products/${id}`, data);
+export const adminDeleteProduct = (id) => api.delete(`/admin/products/${id}`);
+export const adminGetOrders = (params) => api.get('/admin/orders', { params });
+export const adminUpdateOrder = (id, data) => api.patch(`/admin/orders/${id}`, data);
+export const adminGetCoupons = () => api.get('/admin/coupons');
+export const adminCreateCoupon = (data) => api.post('/admin/coupons', data);
+export const adminUpdateCoupon = (id, data) => api.patch(`/admin/coupons/${id}`, data);
+export const adminDeleteCoupon = (id) => api.delete(`/admin/coupons/${id}`);
+export const adminGetUsers = (params) => api.get('/admin/users', { params });
+export const adminUpdateUserRole = (id, role) => api.patch(`/admin/users/${id}/role`, { role });
+
 export default api;
