@@ -2,6 +2,7 @@ const router = require('express').Router();
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 const { parseIntParam } = require('../utils/validate');
+const { sendOrderConfirmation } = require('../utils/mailer');
 
 const VALID_PAYMENT_METHODS = ['COD', 'UPI', 'CARD', 'NETBANKING'];
 
@@ -93,6 +94,7 @@ router.post('/', authenticate, async (req, res) => {
       data: {
         userId: req.user.id,
         addressId: addressId ? parseIntParam(addressId) : null,
+        status: 'CONFIRMED',
         paymentMethod,
         paymentStatus: paymentMethod === 'COD' ? 'PENDING' : (razorpayPaymentId ? 'PAID' : 'PENDING'),
         notes: notes || (razorpayPaymentId ? `Razorpay Payment ID: ${razorpayPaymentId}` : undefined),
@@ -114,6 +116,13 @@ router.post('/', authenticate, async (req, res) => {
     });
 
     await prisma.cartItem.deleteMany({ where: { userId: req.user.id } });
+
+    // Send order confirmation email (non-blocking)
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { name: true, email: true },
+    });
+    sendOrderConfirmation(order, user);
 
     res.status(201).json(order);
   } catch (err) {
