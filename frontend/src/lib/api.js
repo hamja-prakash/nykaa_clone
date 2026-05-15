@@ -87,6 +87,10 @@ export const validateCoupon = (code, orderAmount) =>
 export const createRazorpayOrder = (amount) => api.post('/payments/create-order', { amount });
 export const verifyPayment = (data) => api.post('/payments/verify', data);
 
+// Password Reset
+export const forgotPassword = (email) => api.post('/auth/forgot-password', { email })
+export const resetPassword = (token, password) => api.post('/auth/reset-password', { token, password })
+
 // Admin
 export const adminGetStats = () => api.get('/admin/stats');
 export const adminGetProducts = (params) => api.get('/admin/products', { params });
