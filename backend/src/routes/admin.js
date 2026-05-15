@@ -67,8 +67,18 @@ router.post('/products', async (req, res) => {
   try {
     const { name, slug, description, price, mrp, images, stock, categoryId, brandId, tags, isFeatured, isBestSeller, isActive } = req.body;
     if (!name || price === undefined || stock === undefined) {
-      return res.status(400).json({ error: 'name, price and stock are required' });
+      return res.status(400).json({ error: 'Product name, price and stock are required' });
     }
+    if (!categoryId) return res.status(400).json({ error: 'Please select a category' });
+    if (!brandId) return res.status(400).json({ error: 'Please select a brand' });
+
+    const parsedPrice = parseFloat(price);
+    const parsedStock = parseInt(stock, 10);
+    const parsedMrp = mrp ? parseFloat(mrp) : parsedPrice;
+
+    if (isNaN(parsedPrice) || parsedPrice <= 0) return res.status(400).json({ error: 'Price must be greater than 0' });
+    if (isNaN(parsedStock) || parsedStock < 0) return res.status(400).json({ error: 'Stock cannot be negative' });
+    if (mrp && parsedMrp < parsedPrice) return res.status(400).json({ error: 'MRP cannot be less than selling price' });
 
     const productSlug = (slug || name)
       .toLowerCase()
@@ -76,20 +86,20 @@ router.post('/products', async (req, res) => {
       .replace(/(^-|-$)/g, '');
 
     const existing = await prisma.product.findUnique({ where: { slug: productSlug } });
-    if (existing) return res.status(409).json({ error: 'A product with this slug already exists' });
+    if (existing) return res.status(409).json({ error: `A product named "${name}" already exists. Use a more specific name.` });
 
     const product = await prisma.product.create({
       data: {
         name,
         slug: productSlug,
         description: description || '',
-        price: parseFloat(price),
-        mrp: mrp ? parseFloat(mrp) : parseFloat(price),
-        discount: mrp ? Math.round(((parseFloat(mrp) - parseFloat(price)) / parseFloat(mrp)) * 100) : 0,
+        price: parsedPrice,
+        mrp: parsedMrp,
+        discount: mrp ? Math.round(((parsedMrp - parsedPrice) / parsedMrp) * 100) : 0,
         images: Array.isArray(images) ? images : [],
-        stock: parseInt(stock),
-        categoryId: categoryId ? parseInt(categoryId) : null,
-        brandId: brandId ? parseInt(brandId) : null,
+        stock: parsedStock,
+        categoryId: parseInt(categoryId),
+        brandId: parseInt(brandId),
         tags: tags || '',
         isFeatured: isFeatured || false,
         isBestSeller: isBestSeller || false,
@@ -99,6 +109,8 @@ router.post('/products', async (req, res) => {
     });
     res.status(201).json(product);
   } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: 'A product with this name already exists. Use a more specific name.' });
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Selected category or brand was not found' });
     console.error(err);
     res.status(500).json({ error: 'Failed to create product' });
   }
@@ -116,15 +128,24 @@ router.put('/products/:id', async (req, res) => {
     if (name !== undefined) data.name = name;
     if (slug !== undefined) data.slug = slug;
     if (description !== undefined) data.description = description;
-    if (price !== undefined) data.price = parseFloat(price);
+    if (price !== undefined) {
+      const p = parseFloat(price);
+      if (isNaN(p) || p <= 0) return res.status(400).json({ error: 'Price must be greater than 0' });
+      data.price = p;
+    }
     if (mrp !== undefined) {
-      data.mrp = parseFloat(mrp);
-      if (price !== undefined) {
-        data.discount = Math.round(((parseFloat(mrp) - parseFloat(price)) / parseFloat(mrp)) * 100);
-      }
+      const m = parseFloat(mrp);
+      const p = price !== undefined ? parseFloat(price) : undefined;
+      if (p !== undefined && m < p) return res.status(400).json({ error: 'MRP cannot be less than price' });
+      data.mrp = m;
+      if (price !== undefined) data.discount = Math.round(((m - parseFloat(price)) / m) * 100);
     }
     if (images !== undefined) data.images = Array.isArray(images) ? images : [];
-    if (stock !== undefined) data.stock = parseInt(stock);
+    if (stock !== undefined) {
+      const s = parseInt(stock, 10);
+      if (isNaN(s) || s < 0) return res.status(400).json({ error: 'Stock cannot be negative' });
+      data.stock = s;
+    }
     if (categoryId !== undefined) data.categoryId = categoryId ? parseInt(categoryId) : null;
     if (brandId !== undefined) data.brandId = brandId ? parseInt(brandId) : null;
     if (tags !== undefined) data.tags = tags;
